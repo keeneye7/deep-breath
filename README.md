@@ -1,5 +1,3 @@
-Here is the raw code for your `README.md` file:
-
 ```markdown
 # Audio Visualizer with Three.js
 
@@ -90,6 +88,3 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Live Demo
 
 Check out the live demo of the project at [deepbreath.us](https://deepbreath.us).
-```
-
-You can copy and paste this raw markdown code into your `README.md` file.
