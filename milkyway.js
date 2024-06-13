@@ -1,11 +1,10 @@
+// milkyway.js
+
 let scene, camera, renderer, milkyWay;
 let targetScale = 1;
 const maxScale = 2;
 
-let isDragging = false;
-let previousMousePosition = { x: 0, y: 0 };
-
-function initializeThreeJS(container) {
+export function initializeThreeJS(container) {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     renderer = new THREE.WebGLRenderer();
@@ -63,13 +62,16 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-function setTargetScale(scale) {
+export function setTargetScale(scale) {
     targetScale = scale;
 }
 
-function getMaxScale() {
+export function getMaxScale() {
     return maxScale;
 }
+
+let isDragging = false;
+let previousMousePosition = { x: 0, y: 0 };
 
 function onMouseDown(event) {
     isDragging = true;

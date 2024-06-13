@@ -1,8 +1,25 @@
+// main.js
+
+import { initializeThreeJS, setTargetScale, getMaxScale } from './milkyway.js';
+import { initializeParticles, disposeParticles } from './particle.js';
+
 document.addEventListener("DOMContentLoaded", function () {
     const container = document.getElementById('container');
     const visualizer = document.getElementById('visualizer');
     const audioElement = document.getElementById('background-music');
     const volumeControl = document.getElementById('volume-control');
+
+    // Get the current animation state from local storage
+    let currentAnimation = localStorage.getItem('currentAnimation') || 'milkyway';
+
+    // Toggle animation
+    if (currentAnimation === 'milkyway') {
+        initializeThreeJS(container);
+        localStorage.setItem('currentAnimation', 'particles');
+    } else {
+        initializeParticles(container);
+        localStorage.setItem('currentAnimation', 'milkyway');
+    }
 
     // Set initial volume
     audioElement.volume = volumeControl.value;
@@ -17,9 +34,6 @@ document.addEventListener("DOMContentLoaded", function () {
             audioElement.play();
         }
     });
-
-    // Initialize the Three.js scene
-    initializeThreeJS(container);
 
     const barCount = 32; // Reduce the number of bars for smaller visualization
     for (let i = 0; i < barCount; i++) {
