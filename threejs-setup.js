@@ -2,6 +2,9 @@ let scene, camera, renderer, milkyWay;
 let targetScale = 1;
 const maxScale = 2;
 
+let isDragging = false;
+let previousMousePosition = { x: 0, y: 0 };
+
 function initializeThreeJS(container) {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -30,9 +33,13 @@ function initializeThreeJS(container) {
 
     animate();
 
-    // Add event listeners for mouse move and click
+    // Add event listeners for mouse move, click, and touch events
     window.addEventListener('mousemove', onMouseMove, false);
-    window.addEventListener('click', onClick, false);
+    window.addEventListener('mousedown', onMouseDown, false);
+    window.addEventListener('mouseup', onMouseUp, false);
+    window.addEventListener('touchstart', onTouchStart, false);
+    window.addEventListener('touchmove', onTouchMove, false);
+    window.addEventListener('touchend', onTouchEnd, false);
 }
 
 function animate() {
@@ -64,24 +71,66 @@ function getMaxScale() {
     return maxScale;
 }
 
-function onMouseMove(event) {
-    // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
-    const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-
-    // Move the camera based on mouse position
-    camera.position.x = mouseX * 10;
-    camera.position.y = mouseY * 10;
-    camera.lookAt(scene.position);
+function onMouseDown(event) {
+    isDragging = true;
 }
 
-function onClick(event) {
-    // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
-    const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+function onMouseUp(event) {
+    isDragging = false;
+    previousMousePosition = { x: 0, y: 0 };
+}
 
-    // Move the camera based on click position
-    camera.position.x = mouseX * 10;
-    camera.position.y = mouseY * 10;
+function onMouseMove(event) {
+    if (!isDragging) {
+        return;
+    }
+
+    const deltaMove = {
+        x: event.offsetX - previousMousePosition.x,
+        y: event.offsetY - previousMousePosition.y
+    };
+
+    camera.position.x -= deltaMove.x * 0.01;
+    camera.position.y += deltaMove.y * 0.01;
     camera.lookAt(scene.position);
+
+    previousMousePosition = {
+        x: event.offsetX,
+        y: event.offsetY
+    };
+}
+
+function onTouchStart(event) {
+    if (event.touches.length === 1) {
+        isDragging = true;
+        previousMousePosition = {
+            x: event.touches[0].clientX,
+            y: event.touches[0].clientY
+        };
+    }
+}
+
+function onTouchMove(event) {
+    if (!isDragging || event.touches.length !== 1) {
+        return;
+    }
+
+    const deltaMove = {
+        x: event.touches[0].clientX - previousMousePosition.x,
+        y: event.touches[0].clientY - previousMousePosition.y
+    };
+
+    camera.position.x -= deltaMove.x * 0.01;
+    camera.position.y += deltaMove.y * 0.01;
+    camera.lookAt(scene.position);
+
+    previousMousePosition = {
+        x: event.touches[0].clientX,
+        y: event.touches[0].clientY
+    };
+}
+
+function onTouchEnd(event) {
+    isDragging = false;
+    previousMousePosition = { x: 0, y: 0 };
 }
