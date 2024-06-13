@@ -11,7 +11,7 @@ function initializeThreeJS(container) {
 
     // Create the Milky Way
     const milkyWayGeometry = new THREE.BufferGeometry();
-    const starCount = 14000; // Keep the star count as previously set
+    const starCount = 25000; // Keep the star count as previously set
     const positions = new Float32Array(starCount * 3);
 
     for (let i = 0; i < starCount; i++) {
@@ -29,6 +29,10 @@ function initializeThreeJS(container) {
     camera.position.z = 15;
 
     animate();
+
+    // Add event listeners for mouse move and click
+    window.addEventListener('mousemove', onMouseMove, false);
+    window.addEventListener('click', onClick, false);
 }
 
 function animate() {
@@ -36,7 +40,7 @@ function animate() {
 
     // Milky Way animation
     const positions = milkyWay.geometry.attributes.position.array;
-    const fallSpeed = 0.08 * targetScale; // Keep the faster fall speed
+    const fallSpeed = 0.02 * targetScale; // Keep the faster fall speed
 
     for (let i = 0; i < positions.length; i += 3) {
         positions[i + 1] -= fallSpeed;
@@ -58,4 +62,26 @@ function setTargetScale(scale) {
 
 function getMaxScale() {
     return maxScale;
+}
+
+function onMouseMove(event) {
+    // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+    const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Move the camera based on mouse position
+    camera.position.x = mouseX * 10;
+    camera.position.y = mouseY * 10;
+    camera.lookAt(scene.position);
+}
+
+function onClick(event) {
+    // Calculate mouse position in normalized device coordinates (-1 to +1) for both components
+    const mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+    const mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Move the camera based on click position
+    camera.position.x = mouseX * 10;
+    camera.position.y = mouseY * 10;
+    camera.lookAt(scene.position);
 }
