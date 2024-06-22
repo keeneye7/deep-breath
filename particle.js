@@ -60,13 +60,21 @@ function requestMicrophonePermission() {
 function visualizeParticles() {
     analyser.getByteFrequencyData(dataArray);
 
-    // Use average frequency data to influence particle movement
-    particleCursorInstance.uniforms.uCoordScale.value = 100 / 1024;  // Halved
-    particleCursorInstance.uniforms.uNoiseIntensity.value = 1 / 2048;  // Halved
-    particleCursorInstance.uniforms.uPointSize.value = 200  / 256;  // Particle size range halved
-    
-    // Update particles' noise time coefficient to create streamlined movement
-    // particleCursorInstance.uniforms.uNoiseTimeCoef.value = 0.00005 + 1024 / 200000;  // Halved
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
+    }
+    const average = sum / dataArray.length;
+
+    const newCoordScale = 0.5 + (average / 128.0) * 1;
+    const newNoiseIntensity = 0.0005 + (average / 128.0) * 0.002;
+    const newPointSize = 1 + (average / 128.0) * 1;
+
+    if (particleCursorInstance) {
+        particleCursorInstance.uniforms.uCoordScale.value = newCoordScale;
+        particleCursorInstance.uniforms.uNoiseIntensity.value = newNoiseIntensity;
+        particleCursorInstance.uniforms.uPointSize.value = newPointSize;
+    }
 
     requestAnimationFrame(visualizeParticles);
 }
