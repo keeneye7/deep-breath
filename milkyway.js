@@ -1,8 +1,17 @@
 // milkyway.js
 
+import * as THREE from 'three';
+
 let scene, camera, renderer, milkyWay;
 let targetScale = 1;
 const maxScale = 2;
+
+let animationPhase = 0; // 0: normal, 1: circle, 2: gather, 3: spread
+let animationTimer = 0;
+const animationInterval = 4.5; // seconds
+const circleRadius = 5;
+const starCount = 25000;
+const originalPositions = new Float32Array(starCount * 3);
 
 export function initializeThreeJS(container) {
     scene = new THREE.Scene();
@@ -13,20 +22,27 @@ export function initializeThreeJS(container) {
 
     // Create the Milky Way
     const milkyWayGeometry = new THREE.BufferGeometry();
-    const starCount = 25000; // Keep the star count as previously set
     const positions = new Float32Array(starCount * 3);
 
     for (let i = 0; i < starCount; i++) {
-        positions[i * 3] = THREE.MathUtils.randFloatSpread(200);
-        positions[i * 3 + 1] = THREE.MathUtils.randFloatSpread(200);
-        positions[i * 3 + 2] = THREE.MathUtils.randFloatSpread(200);
+        const x = THREE.MathUtils.randFloatSpread(200);
+        const y = THREE.MathUtils.randFloatSpread(200);
+        const z = THREE.MathUtils.randFloatSpread(200);
+        
+        positions[i * 3] = x;
+        positions[i * 3 + 1] = y;
+        positions[i * 3 + 2] = z;
+        
+        originalPositions[i * 3] = x;
+        originalPositions[i * 3 + 1] = y;
+        originalPositions[i * 3 + 2] = z;
     }
 
     milkyWayGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
 
     const milkyWayMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.01 });
     milkyWay = new THREE.Points(milkyWayGeometry, milkyWayMaterial);
-    scene.add(milkyWay); // Set Milky Way as the default animation
+    scene.add(milkyWay);
 
     camera.position.z = 15;
 
@@ -44,15 +60,30 @@ export function initializeThreeJS(container) {
 function animate() {
     requestAnimationFrame(animate);
 
-    // Milky Way animation
-    const positions = milkyWay.geometry.attributes.position.array;
-    const fallSpeed = 0.02 * targetScale; // Keep the faster fall speed
+    const deltaTime = 1 / 60; // Assuming 60 FPS
+    animationTimer += deltaTime;
 
-    for (let i = 0; i < positions.length; i += 3) {
-        positions[i + 1] -= fallSpeed;
-        if (positions[i + 1] < -100) {
-            positions[i + 1] = 100;
-        }
+    if (animationTimer >= animationInterval) {
+        animationTimer = 0;
+        animationPhase = (animationPhase + 1) % 4;
+    }
+
+    const positions = milkyWay.geometry.attributes.position.array;
+    const progress = animationTimer / animationInterval;
+
+    switch (animationPhase) {
+        case 0: // Normal
+            updateNormalPositions(positions, progress);
+            break;
+        case 1: // Circle
+            updateCirclePositions(positions, progress);
+            break;
+        case 2: // Gather
+            updateGatherPositions(positions, progress);
+            break;
+        case 3: // Spread
+            updateSpreadPositions(positions, progress);
+            break;
     }
 
     milkyWay.geometry.attributes.position.needsUpdate = true;
@@ -60,6 +91,49 @@ function animate() {
     milkyWay.rotation.y += 0.0005;
 
     renderer.render(scene, camera);
+}
+
+function updateNormalPositions(positions, progress) {
+    const fallSpeed = 0.02 * targetScale;
+    for (let i = 0; i < positions.length; i += 3) {
+        positions[i + 1] -= fallSpeed;
+        if (positions[i + 1] < -100) {
+            positions[i + 1] = 100;
+        }
+    }
+}
+
+function updateCirclePositions(positions, progress) {
+    for (let i = 0; i < positions.length; i += 3) {
+        const angle = (i / positions.length) * Math.PI * 2;
+        const targetX = Math.cos(angle) * circleRadius;
+        const targetY = Math.sin(angle) * circleRadius;
+        const targetZ = 0;
+
+        positions[i] = lerp(positions[i], targetX, progress);
+        positions[i + 1] = lerp(positions[i + 1], targetY, progress);
+        positions[i + 2] = lerp(positions[i + 2], targetZ, progress);
+    }
+}
+
+function updateGatherPositions(positions, progress) {
+    for (let i = 0; i < positions.length; i += 3) {
+        positions[i] = lerp(positions[i], 0, progress);
+        positions[i + 1] = lerp(positions[i + 1], 0, progress);
+        positions[i + 2] = lerp(positions[i + 2], 0, progress);
+    }
+}
+
+function updateSpreadPositions(positions, progress) {
+    for (let i = 0; i < positions.length; i += 3) {
+        positions[i] = lerp(positions[i], originalPositions[i], progress);
+        positions[i + 1] = lerp(positions[i + 1], originalPositions[i + 1], progress);
+        positions[i + 2] = lerp(positions[i + 2], originalPositions[i + 2], progress);
+    }
+}
+
+function lerp(start, end, t) {
+    return start * (1 - t) + end * t;
 }
 
 export function setTargetScale(scale) {
