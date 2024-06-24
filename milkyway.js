@@ -78,9 +78,9 @@ function animate() {
         case 1: // Circle
             updateCirclePositions(positions, progress);
             break;
-        case 2: // Gather
-            updateGatherPositions(positions, progress);
-            break;
+        // case 2: // Gather
+        //     updateGatherPositions(positions, progress);
+        //     break;
         case 3: // Spread
             updateSpreadPositions(positions, progress);
             break;
