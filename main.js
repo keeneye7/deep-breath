@@ -1,108 +1,189 @@
-// main.js
+// main.js - 새로운 모듈화된 구조
+import { deepBreathApp } from './src/DeepBreathApp.js';
 
-import { initializeThreeJS, setTargetScale, getMaxScale } from './milkyway.js';
-import { initializeParticles, disposeParticles } from './particle.js';
-
-document.addEventListener("DOMContentLoaded", function () {
-    const container = document.getElementById('container');
-    const visualizer = document.getElementById('visualizer');
-    const audioElement = document.getElementById('background-music');
-    const volumeControl = document.getElementById('volume-control');
-
-    // Get the current animation state from local storage
-    let currentAnimation = localStorage.getItem('currentAnimation') || 'milkyway';
-
-    // Toggle animation
-    if (currentAnimation === 'milkyway') {
-        initializeThreeJS(container);
-        localStorage.setItem('currentAnimation', 'particles');
-    } else {
-        initializeParticles(container);
-        localStorage.setItem('currentAnimation', 'milkyway');
-    }
-
-    // Set initial volume
-    audioElement.volume = volumeControl.value;
-
-    volumeControl.addEventListener('input', function() {
-        audioElement.volume = this.value;
-    });
-
-    // Play the audio after user interaction
-    document.body.addEventListener('click', function() {
-        if (audioElement.paused) {
-            audioElement.play();
+// DOM이 로드되면 앱 초기화
+document.addEventListener("DOMContentLoaded", async function () {
+    try {
+        console.log('🌟 DeepBreath.us - Starting initialization...');
+        
+        // 앱 초기화
+        await deepBreathApp.initialize();
+        
+        // 앱 이벤트 리스너 설정
+        setupAppEventListeners();
+        
+        console.log('✅ DeepBreath.us - Initialization completed successfully!');
+        
+        // 개발 모드에서 디버깅 정보 표시
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            setupDebugMode();
         }
-    });
-
-    const barCount = 32; // Reduce the number of bars for smaller visualization
-    for (let i = 0; i < barCount; i++) {
-        const bar = document.createElement('div');
-        bar.className = 'bar';
-        visualizer.appendChild(bar);
+        
+    } catch (error) {
+        console.error('❌ Failed to initialize DeepBreath.us:', error);
+        showErrorMessage('앱을 초기화하는 중 오류가 발생했습니다. 페이지를 새로고침해주세요.');
     }
+});
 
-    const bars = document.getElementsByClassName('bar');
-
-    // Request microphone permission
-    function requestMicrophonePermission() {
-        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const analyser = audioContext.createAnalyser();
-            const microphone = audioContext.createMediaStreamSource(stream);
-
-            // Increase the gain to amplify the input signal
-            const gainNode = audioContext.createGain();
-            gainNode.gain.value = 3; // Increased sensitivity
-            microphone.connect(gainNode);
-            gainNode.connect(analyser);
-
-            analyser.fftSize = 64; // Reduce the fft size for smaller visualization
-
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
-
-            function visualizeBreathing() {
-                analyser.getByteFrequencyData(dataArray);
-
-                for (let i = 0; i < bufferLength; i++) {
-                    const barHeight = dataArray[i] / 4; // Make the bars smaller
-                    if (bars[i]) {
-                        bars[i].style.height = `${barHeight}px`;
-                        bars[i].style.opacity = 0.5 + barHeight / 50;
-                    }
-                }
-
-                let sum = 0;
-                for (let i = 0; i < bufferLength; i++) {
-                    sum += dataArray[i];
-                }
-                const average = sum / bufferLength;
-
-                setTargetScale(1 + (average / 128.0) * getMaxScale()); // Normalize the breathing level and adjust target scale
-
-                requestAnimationFrame(visualizeBreathing);
-            }
-
-            visualizeBreathing();
-        }).catch(function (err) {
-            console.error('The following error occurred: ' + err);
-        });
-    }
-
-    // Check for microphone permission
-    navigator.permissions.query({ name: 'microphone' }).then(function(permissionStatus) {
-        if (permissionStatus.state === 'granted') {
-            requestMicrophonePermission();
-        } else if (permissionStatus.state === 'prompt') {
-            requestMicrophonePermission();
-        } else {
-            console.warn('Microphone access has been denied.');
-        }
-        permissionStatus.onchange = function() {
-            if (this.state === 'granted') {
-                requestMicrophonePermission();
-            }
-        };
+function setupAppEventListeners() {
+    // 앱 초기화 완료
+    deepBreathApp.on('initialized', () => {
+        console.log('🎉 App initialized successfully');
+        showWelcomeMessage();
     });
+    
+    // 애니메이션 변경
+    deepBreathApp.on('animationChanged', (animationType) => {
+        console.log(`🎨 Animation changed to: ${animationType}`);
+        showNotification(`애니메이션이 ${animationType}로 변경되었습니다`);
+    });
+    
+    // 세션 시작
+    deepBreathApp.on('sessionStarted', () => {
+        console.log('🧘 Meditation session started');
+        showNotification('명상 세션이 시작되었습니다');
+    });
+    
+    // 세션 종료
+    deepBreathApp.on('sessionEnded', (data) => {
+        console.log('✨ Meditation session ended', data);
+        const minutes = Math.floor(data.duration / 60000);
+        const seconds = Math.floor((data.duration % 60000) / 1000);
+        showNotification(`명상 세션이 완료되었습니다 (${minutes}분 ${seconds}초)`);
+    });
+    
+    // 호흡 데이터 수신
+    deepBreathApp.on('breathingData', (data) => {
+        // 호흡 데이터 처리 (필요시 추가 로직)
+    });
+    
+    // 마이크 연결
+    deepBreathApp.on('microphoneConnected', () => {
+        console.log('🎤 Microphone connected');
+        showNotification('마이크가 연결되었습니다');
+    });
+    
+    // 마이크 오류
+    deepBreathApp.on('microphoneError', (error) => {
+        console.warn('🎤 Microphone error:', error);
+        showNotification('마이크 접근이 거부되었습니다. 호흡 감지 기능이 제한됩니다.', 'warning');
+    });
+    
+    // 오류 처리
+    deepBreathApp.on('error', (error) => {
+        console.error('💥 App error:', error);
+        showErrorMessage('오류가 발생했습니다: ' + error.message);
+    });
+}
+
+function showWelcomeMessage() {
+    // 첫 방문자를 위한 안내 메시지
+    const isFirstVisit = !localStorage.getItem('deepbreath_visited');
+    
+    if (isFirstVisit) {
+        localStorage.setItem('deepbreath_visited', 'true');
+        
+        setTimeout(() => {
+            showNotification(`
+                🌟 DeepBreath에 오신 것을 환영합니다!
+                
+                💡 사용법:
+                • 스페이스바: 음악 재생/일시정지
+                • Tab: 애니메이션 전환
+                • S: 명상 세션 시작/종료
+                • R: 리셋
+                
+                🎤 마이크 권한을 허용하면 호흡에 반응하는 시각화를 경험할 수 있습니다.
+            `, 'info', 8000);
+        }, 2000);
+    }
+}
+
+function showNotification(message, type = 'info', duration = 3000) {
+    // 알림 표시 (간단한 구현)
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.innerHTML = message.replace(/\n/g, '<br>');
+    
+    // 스타일 적용
+    Object.assign(notification.style, {
+        position: 'fixed',
+        top: '20px',
+        right: '20px',
+        padding: '15px 20px',
+        borderRadius: '8px',
+        color: 'white',
+        fontSize: '14px',
+        lineHeight: '1.4',
+        maxWidth: '300px',
+        zIndex: '10000',
+        opacity: '0',
+        transform: 'translateX(100%)',
+        transition: 'all 0.3s ease',
+        backgroundColor: type === 'error' ? '#e74c3c' : 
+                        type === 'warning' ? '#f39c12' : '#3498db'
+    });
+    
+    document.body.appendChild(notification);
+    
+    // 애니메이션으로 표시
+    setTimeout(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateX(0)';
+    }, 100);
+    
+    // 자동 제거
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, duration);
+}
+
+function showErrorMessage(message) {
+    showNotification(message, 'error', 5000);
+}
+
+function setupDebugMode() {
+    // 개발 모드에서 디버깅 도구 추가
+    console.log('🔧 Debug mode enabled');
+    
+    // 전역 디버깅 객체 생성
+    window.deepBreathDebug = {
+        app: deepBreathApp,
+        getState: () => deepBreathApp.getAppState(),
+        toggleAnimation: () => deepBreathApp.toggleAnimation(),
+        toggleSession: () => deepBreathApp.toggleSession(),
+        reset: () => deepBreathApp.resetApp()
+    };
+    
+    // 키보드 단축키 안내
+    console.log(`
+🎹 Keyboard shortcuts:
+• Space: Toggle audio
+• Tab: Switch animation
+• S: Start/stop session
+• R: Reset app
+
+🔍 Debug commands:
+• deepBreathDebug.getState() - Get current state
+• deepBreathDebug.toggleAnimation() - Switch animation
+• deepBreathDebug.toggleSession() - Toggle session
+• deepBreathDebug.reset() - Reset app
+    `);
+}
+
+// 에러 핸들링
+window.addEventListener('error', (event) => {
+    console.error('💥 Global error:', event.error);
+    showErrorMessage('예상치 못한 오류가 발생했습니다.');
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    console.error('💥 Unhandled promise rejection:', event.reason);
+    showErrorMessage('비동기 작업 중 오류가 발생했습니다.');
 });
