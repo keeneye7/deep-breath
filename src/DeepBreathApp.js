@@ -4,6 +4,8 @@ import { ParticleAnimation } from './components/animations/Particles.js';
 import { AudioManager } from './components/audio/AudioManager.js';
 import { stateManager } from './services/StateManager.js';
 import { EventEmitter } from './utils/EventEmitter.js';
+import { musicService } from './services/MusicService.js';
+import { MusicControls } from './components/ui/MusicControls.js';
 
 export class DeepBreathApp extends EventEmitter {
     constructor() {
@@ -15,6 +17,7 @@ export class DeepBreathApp extends EventEmitter {
         // 컴포넌트 인스턴스
         this.currentAnimation = null;
         this.audioManager = new AudioManager();
+        this.musicControls = null;
         
         // 상태
         this.isInitialized = false;
@@ -45,6 +48,9 @@ export class DeepBreathApp extends EventEmitter {
             // 오디오 매니저 초기화
             await this.audioManager.initialize();
 
+            // 음악 서비스 초기화 (이미 자동으로 초기화됨)
+            this.setupMusicService();
+
             // 초기 애니메이션 설정
             this.animationType = stateManager.getState('currentAnimation') || 'milkyway';
             await this.switchAnimation(this.animationType);
@@ -67,6 +73,43 @@ export class DeepBreathApp extends EventEmitter {
             console.error('Failed to initialize DeepBreath App:', error);
             this.emit('error', error);
         }
+    }
+
+    setupMusicService() {
+        // 음악 컨트롤 UI 생성
+        this.musicControls = new MusicControls(musicService);
+        
+        // 음악 서비스 이벤트 구독
+        musicService.on('initialized', () => {
+            console.log('🎵 Music service ready');
+            // 음악 컨트롤 표시 (3초 후 자동 숨김)
+            setTimeout(() => {
+                this.musicControls.show();
+                setTimeout(() => {
+                    this.musicControls.hide();
+                }, 3000);
+            }, 2000);
+        });
+        
+        musicService.on('play', (track) => {
+            console.log('🎵 Playing:', track.title);
+            this.emit('musicPlay', track);
+        });
+        
+        musicService.on('pause', () => {
+            console.log('🎵 Music paused');
+            this.emit('musicPause');
+        });
+        
+        musicService.on('trackChanged', (track) => {
+            console.log('🎵 Track changed:', track.title);
+            this.emit('musicTrackChanged', track);
+        });
+        
+        musicService.on('error', (error) => {
+            console.error('🎵 Music service error:', error);
+            this.emit('musicError', error);
+        });
     }
 
     setupStateSubscriptions() {
@@ -124,9 +167,9 @@ export class DeepBreathApp extends EventEmitter {
 
     handleKeyboardShortcuts(e) {
         switch (e.key.toLowerCase()) {
-            case ' ': // 스페이스바 - 재생/일시정지
+            case ' ': // 스페이스바 - 음악 재생/일시정지
                 e.preventDefault();
-                this.toggleAudio();
+                musicService.toggle();
                 break;
             case 'tab': // 탭 - 애니메이션 전환
                 e.preventDefault();
@@ -139,6 +182,30 @@ export class DeepBreathApp extends EventEmitter {
             case 'r': // R - 리셋
                 e.preventDefault();
                 this.resetApp();
+                break;
+            case 'm': // M - 음악 컨트롤 토글
+                e.preventDefault();
+                if (this.musicControls) {
+                    this.musicControls.toggle();
+                }
+                break;
+            case 'arrowleft': // 왼쪽 화살표 - 이전 곡
+                e.preventDefault();
+                musicService.playPrevious();
+                break;
+            case 'arrowright': // 오른쪽 화살표 - 다음 곡
+                e.preventDefault();
+                musicService.playNext();
+                break;
+            case 'arrowup': // 위쪽 화살표 - 볼륨 증가
+                e.preventDefault();
+                const currentVolume = musicService.getVolume();
+                musicService.setVolume(Math.min(1, currentVolume + 0.1));
+                break;
+            case 'arrowdown': // 아래쪽 화살표 - 볼륨 감소
+                e.preventDefault();
+                const currentVol = musicService.getVolume();
+                musicService.setVolume(Math.max(0, currentVol - 0.1));
                 break;
         }
     }
