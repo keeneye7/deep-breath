@@ -125,7 +125,7 @@ export class MusicControls extends EventEmitter {
                 padding: 16px;
                 color: white;
                 font-family: var(--font-main, sans-serif);
-                z-index: 1001;
+                z-index: 1500;
                 min-width: 320px;
                 transform: translateY(100px);
                 opacity: 0;

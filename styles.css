@@ -101,7 +101,7 @@ html {
     bottom: 30px;
     left: 50%;
     transform: translateX(-50%);
-    z-index: 1000;
+    z-index: 2000;
     background: rgba(10, 10, 12, 0.4);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -113,6 +113,7 @@ html {
     align-items: center;
     gap: 10px;
     transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
 }
 
 #controls:hover {
@@ -176,8 +177,8 @@ html {
     justify-content: flex-start;
     align-items: flex-end;
     gap: 4px;
-    z-index: 50;
-    pointer-events: none;
+    z-index: 10;
+    pointer-events: none !important;
 }
 
 .bar {
