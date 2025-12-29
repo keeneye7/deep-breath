@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Cosmic Cycle -->
+    <circle cx="256" cy="256" r="240" stroke="white" stroke-width="8" stroke-dasharray="10 20" opacity="0.3"/>
+    <circle cx="256" cy="256" r="250" stroke="white" stroke-width="2" opacity="0.5"/>
+    
+    <!-- Zen Lotus & Lungs Hybrid -->
+    <g stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+        <!-- Vertical Axis (Stem/Trachea) -->
+        <path d="M256 80V432" opacity="0.8"/>
+        
+        <!-- Left Wing/Lobe -->
+        <path d="M256 160C200 160 140 200 140 280C140 360 200 400 256 400" />
+        <path d="M256 220C220 220 180 240 180 280C180 320 220 340 256 340" opacity="0.6"/>
+        
+        <!-- Right Wing/Lobe -->
+        <path d="M256 160C312 160 372 200 372 280C372 360 312 400 256 400" />
+        <path d="M256 220C292 220 332 240 332 280C332 320 292 340 256 340" opacity="0.6"/>
+        
+        <!-- Top Petal -->
+        <path d="M256 160C256 160 220 120 256 60C292 120 256 160 256 160Z" fill="white" fill-opacity="0.2"/>
+    </g>
+    
+    <!-- Stars / Particles -->
+    <circle cx="120" cy="120" r="4" fill="white" opacity="0.6"/>
+    <circle cx="400" cy="380" r="3" fill="white" opacity="0.4"/>
+    <circle cx="350" cy="150" r="5" fill="white" opacity="0.8"/>
+</svg>

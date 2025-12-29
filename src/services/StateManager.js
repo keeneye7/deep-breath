@@ -1,281 +1,157 @@
-// src/services/StateManager.js
+// src/services/StateManager.js - Refactored to CoreContext structure
 import { EventEmitter } from '../utils/EventEmitter.js';
+import { EnvironmentContext } from '../contexts/EnvironmentContext.js';
+import { UserContext } from '../contexts/UserContext.js';
+import { SessionContext } from '../contexts/SessionContext.js';
 
 export class StateManager extends EventEmitter {
     constructor() {
         super();
+
+        // 하위 컨텍스트 인스턴스화
+        this.env = new EnvironmentContext();
+        this.user = new UserContext();
+        this.session = new SessionContext();
+
+        // 레거시 지원 및 통합 상태
         this.state = {
-            // 애니메이션 상태
             currentAnimation: 'milkyway',
-            animationSettings: {
-                milkyway: {
-                    targetScale: 1,
-                    maxScale: 2,
-                    phase: 0
-                },
-                particles: {
-                    coordScale: 0.5,
-                    noiseIntensity: 0.0005,
-                    pointSize: 1
-                }
-            },
-            
-            // 오디오 상태
             audio: {
                 volume: 0.5,
-                isPlaying: false,
-                currentTrack: null,
-                isLooping: true
-            },
-            
-            // 사용자 설정
-            userSettings: {
-                preferredAnimation: 'milkyway',
-                autoStart: true,
-                microphoneEnabled: true,
-                theme: 'dark',
-                language: 'ko'
-            },
-            
-            // 세션 상태
-            session: {
-                isActive: false,
-                startTime: null,
-                duration: 0,
-                breathingData: [],
-                currentPhase: 'idle' // idle, active, paused, completed
-            },
-            
-            // 분석 데이터
-            analytics: {
-                totalSessions: 0,
-                totalDuration: 0,
-                averageSessionLength: 0,
-                lastSessionDate: null
+                isPlaying: false
             }
         };
-        
+
+        this.init();
+    }
+
+    init() {
         this.loadFromStorage();
+
+        // 하위 컨텍스트 초기화
+        this.env.initialize();
+
+        // 컨텍스트 변경 전파
+        this.setupForwarding();
     }
 
-    // 상태 업데이트 메서드
-    setState(path, value) {
-        const keys = path.split('.');
-        let current = this.state;
-        
-        // 중첩된 객체 탐색
-        for (let i = 0; i < keys.length - 1; i++) {
-            if (!current[keys[i]]) {
-                current[keys[i]] = {};
+    setupForwarding() {
+        // 하위 컨텍스트의 변경 사항을 Core(StateManager) 이벤트로 중계 (레거시 호환성)
+        this.env.on('stateChanged', ({ key, value }) => {
+            this.emit(`env.${key}Changed`, value);
+            if (key === 'timePhase') {
+                this.emit('timePhaseChanged', value);
             }
-            current = current[keys[i]];
-        }
-        
-        const lastKey = keys[keys.length - 1];
-        const oldValue = current[lastKey];
-        current[lastKey] = value;
-        
-        // 변경 이벤트 발생
-        this.emit('stateChanged', { path, value, oldValue });
-        this.emit(`${path}Changed`, value, oldValue);
-        
-        // 로컬 스토리지에 저장
-        this.saveToStorage();
+        });
+
+        this.user.on('stateChanged', ({ key, value }) => {
+            this.emit(`user.${key}Changed`, value);
+            this.saveToStorage();
+        });
+
+        this.session.on('stateChanged', ({ key, value }) => {
+            this.emit(`session.${key}Changed`, value);
+        });
+
+        this.session.on('ended', (data) => {
+            this.user.addHistory({
+                date: Date.now(),
+                duration: data.duration,
+                type: 'meditation'
+            });
+            this.emit('sessionEnded', data);
+        });
+
+        this.session.on('started', (time) => {
+            this.emit('sessionStarted', time);
+        });
     }
 
-    // 상태 조회 메서드
+    // 레거시 API 지원
     getState(path) {
-        if (!path) return this.state;
-        
-        const keys = path.split('.');
+        if (!path) return {
+            ...this.state,
+            env: this.env.getState(),
+            user: this.user.getState(),
+            session: this.session.getState()
+        };
+
+        const parts = path.split('.');
+        const domain = parts[0];
+
+        if (domain === 'env') return this.env.getState(parts[1]);
+        if (domain === 'user') return this.user.getState(parts[1]);
+        if (domain === 'session') return this.session.getState(parts[1]);
+
+        // 기존 상태 처리
         let current = this.state;
-        
-        for (const key of keys) {
-            if (current[key] === undefined) {
-                return undefined;
-            }
+        for (const key of parts) {
+            if (current[key] === undefined) return undefined;
             current = current[key];
         }
-        
         return current;
     }
 
-    // 애니메이션 관련 메서드
-    setCurrentAnimation(animationType) {
-        this.setState('currentAnimation', animationType);
-        this.setState('userSettings.preferredAnimation', animationType);
+    setState(path, value) {
+        const parts = path.split('.');
+        const domain = parts[0];
+
+        if (domain === 'env') return this.env.setState(parts[1], value);
+        if (domain === 'user') return this.user.setState(parts[1], value);
+        if (domain === 'session') return this.session.setState(parts[1], value);
+
+        // 기존 상태 업데이트 로직
+        let current = this.state;
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!current[parts[i]]) current[parts[i]] = {};
+            current = current[parts[i]];
+        }
+        const lastKey = parts[parts.length - 1];
+        current[lastKey] = value;
+
+        this.emit(`${path}Changed`, value);
+        this.saveToStorage();
     }
 
-    updateAnimationSettings(animationType, settings) {
-        const currentSettings = this.getState(`animationSettings.${animationType}`) || {};
-        const newSettings = { ...currentSettings, ...settings };
-        this.setState(`animationSettings.${animationType}`, newSettings);
-    }
-
-    // 오디오 관련 메서드
+    // 헬퍼 메서드들
     setVolume(volume) {
-        this.setState('audio.volume', Math.max(0, Math.min(1, volume)));
+        this.setState('audio.volume', volume);
     }
 
     setAudioPlaying(isPlaying) {
         this.setState('audio.isPlaying', isPlaying);
     }
 
-    setCurrentTrack(track) {
-        this.setState('audio.currentTrack', track);
+    setCurrentAnimation(animation) {
+        this.setState('currentAnimation', animation);
     }
 
-    // 세션 관리 메서드
-    startSession() {
-        const now = Date.now();
-        this.setState('session.isActive', true);
-        this.setState('session.startTime', now);
-        this.setState('session.currentPhase', 'active');
-        this.setState('session.breathingData', []);
-        
-        this.emit('sessionStarted', now);
-    }
-
-    pauseSession() {
-        this.setState('session.currentPhase', 'paused');
-        this.emit('sessionPaused');
-    }
-
-    resumeSession() {
-        this.setState('session.currentPhase', 'active');
-        this.emit('sessionResumed');
-    }
-
-    endSession() {
-        const startTime = this.getState('session.startTime');
-        const duration = startTime ? Date.now() - startTime : 0;
-        
-        this.setState('session.isActive', false);
-        this.setState('session.duration', duration);
-        this.setState('session.currentPhase', 'completed');
-        
-        // 분석 데이터 업데이트
-        this.updateAnalytics(duration);
-        
-        this.emit('sessionEnded', {
-            duration,
-            breathingData: this.getState('session.breathingData')
-        });
-    }
-
-    addBreathingData(data) {
-        const currentData = this.getState('session.breathingData') || [];
-        const newData = [...currentData, {
-            timestamp: Date.now(),
-            ...data
-        }];
-        
-        this.setState('session.breathingData', newData);
-    }
-
-    // 분석 데이터 업데이트
-    updateAnalytics(sessionDuration) {
-        const totalSessions = this.getState('analytics.totalSessions') + 1;
-        const totalDuration = this.getState('analytics.totalDuration') + sessionDuration;
-        const averageSessionLength = totalDuration / totalSessions;
-        
-        this.setState('analytics.totalSessions', totalSessions);
-        this.setState('analytics.totalDuration', totalDuration);
-        this.setState('analytics.averageSessionLength', averageSessionLength);
-        this.setState('analytics.lastSessionDate', Date.now());
-    }
-
-    // 사용자 설정 메서드
-    updateUserSettings(settings) {
-        const currentSettings = this.getState('userSettings');
-        const newSettings = { ...currentSettings, ...settings };
-        this.setState('userSettings', newSettings);
-    }
-
-    // 로컬 스토리지 관리
+    // 로컬 스토리지
     saveToStorage() {
-        try {
-            const dataToSave = {
-                userSettings: this.getState('userSettings'),
-                analytics: this.getState('analytics'),
-                animationSettings: this.getState('animationSettings'),
-                audio: {
-                    volume: this.getState('audio.volume'),
-                    isLooping: this.getState('audio.isLooping')
-                }
-            };
-            
-            localStorage.setItem('deepbreath_state', JSON.stringify(dataToSave));
-        } catch (error) {
-            console.error('Failed to save state to localStorage:', error);
-        }
+        const data = {
+            state: this.state,
+            user: this.user.getState()
+        };
+        localStorage.setItem('deepbreath_core_state', JSON.stringify(data));
     }
 
     loadFromStorage() {
         try {
-            const saved = localStorage.getItem('deepbreath_state');
+            const saved = localStorage.getItem('deepbreath_core_state');
             if (saved) {
                 const data = JSON.parse(saved);
-                
-                // 저장된 데이터를 현재 상태에 병합
-                if (data.userSettings) {
-                    this.state.userSettings = { ...this.state.userSettings, ...data.userSettings };
-                }
-                if (data.analytics) {
-                    this.state.analytics = { ...this.state.analytics, ...data.analytics };
-                }
-                if (data.animationSettings) {
-                    this.state.animationSettings = { ...this.state.animationSettings, ...data.animationSettings };
-                }
-                if (data.audio) {
-                    this.state.audio = { ...this.state.audio, ...data.audio };
-                }
-                
-                // 현재 애니메이션을 사용자 선호도로 설정
-                if (data.userSettings && data.userSettings.preferredAnimation) {
-                    this.state.currentAnimation = data.userSettings.preferredAnimation;
-                }
+                if (data.state) this.state = { ...this.state, ...data.state };
+                if (data.user) this.user.initialize(data.user);
             }
-        } catch (error) {
-            console.error('Failed to load state from localStorage:', error);
+        } catch (e) {
+            console.error('Storage load error', e);
         }
     }
 
-    // 상태 초기화
-    reset() {
-        this.state = {
-            currentAnimation: 'milkyway',
-            animationSettings: {
-                milkyway: { targetScale: 1, maxScale: 2, phase: 0 },
-                particles: { coordScale: 0.5, noiseIntensity: 0.0005, pointSize: 1 }
-            },
-            audio: { volume: 0.5, isPlaying: false, currentTrack: null, isLooping: true },
-            userSettings: { preferredAnimation: 'milkyway', autoStart: true, microphoneEnabled: true, theme: 'dark', language: 'ko' },
-            session: { isActive: false, startTime: null, duration: 0, breathingData: [], currentPhase: 'idle' },
-            analytics: { totalSessions: 0, totalDuration: 0, averageSessionLength: 0, lastSessionDate: null }
-        };
-        
-        this.saveToStorage();
-        this.emit('stateReset');
-    }
-
-    // 디버깅용 메서드
-    getFullState() {
-        return JSON.parse(JSON.stringify(this.state));
-    }
-
-    // 상태 구독 헬퍼
-    subscribe(path, callback) {
-        const eventName = `${path}Changed`;
-        this.on(eventName, callback);
-        
-        // 현재 값으로 즉시 호출
-        callback(this.getState(path));
-        
-        // 구독 해제 함수 반환
-        return () => this.off(eventName, callback);
-    }
+    // 세션 헬퍼 (레거시 호환)
+    startSession() { this.session.start(); }
+    endSession() { this.session.stop(); }
+    addBreathingData(data) { this.session.addBreathingData(data); }
 }
 
-// 싱글톤 인스턴스 생성
 export const stateManager = new StateManager();

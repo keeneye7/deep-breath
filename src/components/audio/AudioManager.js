@@ -21,28 +21,28 @@ export class AudioManager extends EventEmitter {
         try {
             // 기존 오디오 엘리먼트 찾기 또는 생성
             this.audioElement = document.getElementById('background-music') || this.createAudioElement();
-            
+
             // Web Audio API 컨텍스트 생성
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.analyser = this.audioContext.createAnalyser();
             this.gainNode = this.audioContext.createGain();
-            
+
             // 오디오 엘리먼트를 Web Audio API에 연결
             const source = this.audioContext.createMediaElementSource(this.audioElement);
             source.connect(this.gainNode);
             this.gainNode.connect(this.analyser);
             this.analyser.connect(this.audioContext.destination);
-            
+
             // 초기 설정
             this.gainNode.gain.value = this.volume;
             this.audioElement.loop = this.isLooping;
-            
+
             // 이벤트 리스너 설정
             this.setupEventListeners();
-            
+
             this.isInitialized = true;
             this.emit('initialized');
-            
+
         } catch (error) {
             console.error('Failed to initialize AudioManager:', error);
             this.emit('error', error);
@@ -54,6 +54,7 @@ export class AudioManager extends EventEmitter {
         audio.id = 'background-music';
         audio.src = 'audio.mp3'; // 기본 트랙
         audio.preload = 'auto';
+        audio.crossOrigin = 'anonymous';
         document.body.appendChild(audio);
         return audio;
     }
@@ -119,7 +120,7 @@ export class AudioManager extends EventEmitter {
 
     pause() {
         if (!this.audioElement) return;
-        
+
         this.audioElement.pause();
         this.isPlaying = false;
         this.emit('paused');
@@ -127,7 +128,7 @@ export class AudioManager extends EventEmitter {
 
     stop() {
         if (!this.audioElement) return;
-        
+
         this.audioElement.pause();
         this.audioElement.currentTime = 0;
         this.isPlaying = false;
@@ -137,15 +138,15 @@ export class AudioManager extends EventEmitter {
     // 볼륨 제어
     setVolume(volume) {
         this.volume = Math.max(0, Math.min(1, volume));
-        
+
         if (this.audioElement) {
             this.audioElement.volume = this.volume;
         }
-        
+
         if (this.gainNode) {
             this.gainNode.gain.value = this.volume;
         }
-        
+
         this.emit('volumeChanged', this.volume);
     }
 
@@ -158,7 +159,7 @@ export class AudioManager extends EventEmitter {
         if (!this.audioElement) return;
 
         const wasPlaying = this.isPlaying;
-        
+
         try {
             this.audioElement.src = src;
             this.currentTrack = {
@@ -166,9 +167,9 @@ export class AudioManager extends EventEmitter {
                 ...metadata,
                 loadedAt: Date.now()
             };
-            
+
             this.emit('trackLoading', this.currentTrack);
-            
+
             // 메타데이터 로드 대기
             await new Promise((resolve, reject) => {
                 const onLoadedMetadata = () => {
@@ -176,24 +177,24 @@ export class AudioManager extends EventEmitter {
                     this.audioElement.removeEventListener('error', onError);
                     resolve();
                 };
-                
+
                 const onError = (e) => {
                     this.audioElement.removeEventListener('loadedmetadata', onLoadedMetadata);
                     this.audioElement.removeEventListener('error', onError);
                     reject(e);
                 };
-                
+
                 this.audioElement.addEventListener('loadedmetadata', onLoadedMetadata);
                 this.audioElement.addEventListener('error', onError);
             });
-            
+
             this.emit('trackLoaded', this.currentTrack);
-            
+
             // 이전에 재생 중이었다면 자동 재생
             if (wasPlaying) {
                 await this.play();
             }
-            
+
         } catch (error) {
             console.error('Failed to load track:', error);
             this.emit('trackLoadError', error);
@@ -216,7 +217,7 @@ export class AudioManager extends EventEmitter {
     // 재생 위치 제어
     setCurrentTime(time) {
         if (!this.audioElement) return;
-        
+
         this.audioElement.currentTime = Math.max(0, Math.min(time, this.audioElement.duration || 0));
         this.emit('seeked', this.audioElement.currentTime);
     }
@@ -236,7 +237,7 @@ export class AudioManager extends EventEmitter {
         const bufferLength = this.analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteFrequencyData(dataArray);
-        
+
         return {
             frequencyData: Array.from(dataArray),
             bufferLength,
@@ -255,9 +256,9 @@ export class AudioManager extends EventEmitter {
 
         this.gainNode.gain.setValueAtTime(startVolume, startTime);
         this.gainNode.gain.linearRampToValueAtTime(endVolume, endTime);
-        
+
         this.emit('fadeInStarted', { duration, startVolume, endVolume });
-        
+
         // 페이드 완료 대기
         setTimeout(() => {
             this.emit('fadeInCompleted');
@@ -274,9 +275,9 @@ export class AudioManager extends EventEmitter {
 
         this.gainNode.gain.setValueAtTime(startVolume, startTime);
         this.gainNode.gain.linearRampToValueAtTime(endVolume, endTime);
-        
+
         this.emit('fadeOutStarted', { duration, startVolume, endVolume });
-        
+
         // 페이드 완료 후 일시정지
         setTimeout(() => {
             this.pause();
@@ -294,11 +295,11 @@ export class AudioManager extends EventEmitter {
     // 정리
     dispose() {
         this.stop();
-        
+
         if (this.audioContext && this.audioContext.state !== 'closed') {
             this.audioContext.close();
         }
-        
+
         this.removeAllListeners();
         this.isInitialized = false;
         this.emit('disposed');

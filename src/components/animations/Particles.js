@@ -12,7 +12,7 @@ export class ParticleAnimation extends EventEmitter {
         this.dataArray = null;
         this.isInitialized = false;
         this.animationId = null;
-        
+
         // 기본 설정
         this.config = {
             gpgpuSize: 512,
@@ -40,10 +40,10 @@ export class ParticleAnimation extends EventEmitter {
             });
 
             await this.requestMicrophonePermission();
-            
+
             this.isInitialized = true;
             this.emit('initialized');
-            
+
             this.start();
         } catch (error) {
             console.error('Failed to initialize Particle animation:', error);
@@ -54,7 +54,7 @@ export class ParticleAnimation extends EventEmitter {
     async requestMicrophonePermission() {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
+
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
             this.analyser = this.audioContext.createAnalyser();
             const microphone = this.audioContext.createMediaStreamSource(stream);
@@ -123,17 +123,27 @@ export class ParticleAnimation extends EventEmitter {
 
     dispose() {
         this.stop();
-        
+
         if (this.particleCursorInstance) {
-            this.particleCursorInstance.dispose();
+            if (typeof this.particleCursorInstance.dispose === 'function') {
+                this.particleCursorInstance.dispose();
+            } else if (typeof this.particleCursorInstance.destroy === 'function') {
+                this.particleCursorInstance.destroy();
+            }
             this.particleCursorInstance = null;
         }
-        
+
+        // Clean up any remaining canvases created by external library
+        if (this.container) {
+            const canvases = this.container.querySelectorAll('canvas');
+            canvases.forEach(canvas => canvas.remove());
+        }
+
         if (this.audioContext) {
             this.audioContext.close();
             this.audioContext = null;
         }
-        
+
         this.isInitialized = false;
         this.emit('disposed');
     }
@@ -141,7 +151,7 @@ export class ParticleAnimation extends EventEmitter {
     // 설정 업데이트 메서드
     updateConfig(newConfig) {
         this.config = { ...this.config, ...newConfig };
-        
+
         if (this.particleCursorInstance) {
             // 런타임에서 업데이트 가능한 속성들
             Object.keys(newConfig).forEach(key => {
@@ -150,7 +160,7 @@ export class ParticleAnimation extends EventEmitter {
                 }
             });
         }
-        
+
         this.emit('configUpdated', this.config);
     }
 
@@ -159,7 +169,7 @@ export class ParticleAnimation extends EventEmitter {
         if (!breathingData || !this.particleCursorInstance) return;
 
         const intensity = breathingData.averageRate / 128.0;
-        
+
         this.updateConfig({
             coordScale: 0.5 + intensity * 1,
             noiseIntensity: 0.0005 + intensity * 0.002,

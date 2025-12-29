@@ -1,11 +1,13 @@
 // src/DeepBreathApp.js
 import { MilkyWayAnimation } from './components/animations/MilkyWay.js';
 import { ParticleAnimation } from './components/animations/Particles.js';
+import { AuraAnimation } from './components/animations/Aura.js';
 import { AudioManager } from './components/audio/AudioManager.js';
 import { stateManager } from './services/StateManager.js';
 import { EventEmitter } from './utils/EventEmitter.js';
 import { musicService } from './services/MusicService.js';
 import { MusicControls } from './components/ui/MusicControls.js';
+import ContentData from './utils/ContentData.js';
 
 export class DeepBreathApp extends EventEmitter {
     constructor() {
@@ -13,20 +15,23 @@ export class DeepBreathApp extends EventEmitter {
         this.container = null;
         this.visualizer = null;
         this.volumeControl = null;
-        
+
         // 컴포넌트 인스턴스
         this.currentAnimation = null;
         this.audioManager = new AudioManager();
         this.musicControls = null;
-        
+
         // 상태
         this.isInitialized = false;
         this.animationType = 'milkyway';
-        
+
         // 호흡 시각화 관련
         this.breathingVisualizer = null;
         this.microphoneStream = null;
         this.breathingAnalyser = null;
+
+        // 모드 상태
+        this.isContentMode = false;
     }
 
     async initialize() {
@@ -53,10 +58,17 @@ export class DeepBreathApp extends EventEmitter {
 
             // 초기 애니메이션 설정
             this.animationType = stateManager.getState('currentAnimation') || 'milkyway';
-            await this.switchAnimation(this.animationType);
+            await this.switchAnimation(this.animationType).catch(err => {
+                console.error('Initial animation failed:', err);
+                return this.switchAnimation('particles'); // Fallback
+            });
 
             // UI 컨트롤 설정
             this.setupUIControls();
+
+            // 시간 기반 테마 서비스 초기화
+            const { timeService } = await import('./services/TimeService.js');
+            timeService.init();
 
             // 호흡 시각화 설정
             this.setupBreathingVisualizer();
@@ -66,6 +78,13 @@ export class DeepBreathApp extends EventEmitter {
 
             this.isInitialized = true;
             this.emit('initialized');
+
+            // Hide loading overlay
+            const loader = document.getElementById('loading-overlay');
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.remove(), 1000);
+            }
 
             console.log('DeepBreath App initialized successfully');
 
@@ -78,7 +97,7 @@ export class DeepBreathApp extends EventEmitter {
     setupMusicService() {
         // 음악 컨트롤 UI 생성
         this.musicControls = new MusicControls(musicService);
-        
+
         // 음악 서비스 이벤트 구독
         musicService.on('initialized', () => {
             console.log('🎵 Music service ready');
@@ -90,22 +109,22 @@ export class DeepBreathApp extends EventEmitter {
                 }, 3000);
             }, 2000);
         });
-        
+
         musicService.on('play', (track) => {
             console.log('🎵 Playing:', track.title);
             this.emit('musicPlay', track);
         });
-        
+
         musicService.on('pause', () => {
             console.log('🎵 Music paused');
             this.emit('musicPause');
         });
-        
+
         musicService.on('trackChanged', (track) => {
             console.log('🎵 Track changed:', track.title);
             this.emit('musicTrackChanged', track);
         });
-        
+
         musicService.on('error', (error) => {
             console.error('🎵 Music service error:', error);
             this.emit('musicError', error);
@@ -138,32 +157,6 @@ export class DeepBreathApp extends EventEmitter {
         });
     }
 
-    setupUIControls() {
-        // 볼륨 컨트롤
-        if (this.volumeControl) {
-            const initialVolume = stateManager.getState('audio.volume');
-            this.volumeControl.value = initialVolume;
-            this.audioManager.setVolume(initialVolume);
-
-            this.volumeControl.addEventListener('input', (e) => {
-                const volume = parseFloat(e.target.value);
-                stateManager.setVolume(volume);
-            });
-        }
-
-        // 클릭으로 오디오 재생 시작
-        document.body.addEventListener('click', async () => {
-            if (!stateManager.getState('audio.isPlaying')) {
-                await this.audioManager.play();
-                stateManager.setAudioPlaying(true);
-            }
-        }, { once: true });
-
-        // 키보드 단축키
-        document.addEventListener('keydown', (e) => {
-            this.handleKeyboardShortcuts(e);
-        });
-    }
 
     handleKeyboardShortcuts(e) {
         switch (e.key.toLowerCase()) {
@@ -207,6 +200,31 @@ export class DeepBreathApp extends EventEmitter {
                 const currentVol = musicService.getVolume();
                 musicService.setVolume(Math.max(0, currentVol - 0.1));
                 break;
+            case 'f': // F - 전체화면
+                e.preventDefault();
+                this.toggleFullScreen();
+                break;
+            case 'escape': // Esc - 컨텐츠 모드 종료
+                if (this.isContentMode) {
+                    this.toggleContentMode();
+                }
+                break;
+            case 'e': // E - 익스플로어(컨텐츠) 모드 토글
+                e.preventDefault();
+                this.toggleContentMode();
+                break;
+        }
+    }
+
+    toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(err => {
+                console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+            });
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
         }
     }
 
@@ -225,6 +243,15 @@ export class DeepBreathApp extends EventEmitter {
                     break;
                 case 'particles':
                     this.currentAnimation = new ParticleAnimation(this.container);
+                    break;
+                case 'aura':
+                    const userTier = stateManager.user.getState('tier');
+                    if (userTier !== 'paid') {
+                        // 프리미엄 안내창 표시용 이벤트 발생
+                        musicService.emit('premiumRequired', { title: 'Aura Animation' });
+                        return;
+                    }
+                    this.currentAnimation = new AuraAnimation(this.container);
                     break;
                 default:
                     throw new Error(`Unknown animation type: ${animationType}`);
@@ -326,9 +353,11 @@ export class DeepBreathApp extends EventEmitter {
 
             // 호흡 시각화 바 업데이트
             for (let i = 0; i < bufferLength && i < this.breathingBars.length; i++) {
+                const bar = this.breathingBars[i];
+                if (!bar) continue;
                 const barHeight = dataArray[i] / 4;
-                this.breathingBars[i].style.height = `${barHeight}px`;
-                this.breathingBars[i].style.opacity = 0.5 + barHeight / 50;
+                bar.style.height = `${barHeight}px`;
+                bar.style.opacity = 0.5 + barHeight / 50;
             }
 
             // 평균 계산
@@ -371,7 +400,22 @@ export class DeepBreathApp extends EventEmitter {
 
     toggleAnimation() {
         const currentAnim = stateManager.getState('currentAnimation');
-        const newAnim = currentAnim === 'milkyway' ? 'particles' : 'milkyway';
+        const userTier = stateManager.user.getState('tier');
+        let newAnim;
+
+        if (currentAnim === 'milkyway') {
+            newAnim = 'particles';
+        } else if (currentAnim === 'particles') {
+            // 'aura' is premium. If user is free, skip to 'milkyway'
+            if (userTier === 'paid') {
+                newAnim = 'aura';
+            } else {
+                newAnim = 'milkyway';
+            }
+        } else {
+            newAnim = 'milkyway';
+        }
+
         this.switchAnimation(newAnim);
     }
 
@@ -401,6 +445,87 @@ export class DeepBreathApp extends EventEmitter {
         this.emit('appReset');
     }
 
+    setupUIControls() {
+        // 볼륨 컨트롤
+        if (this.volumeControl) {
+            const initialVolume = stateManager.getState('audio.volume');
+            this.volumeControl.value = initialVolume;
+            this.audioManager.setVolume(initialVolume);
+
+            this.volumeControl.addEventListener('input', (e) => {
+                const volume = parseFloat(e.target.value);
+                stateManager.setVolume(volume);
+            });
+        }
+
+        // 컨텐츠 토글 버튼
+        const exploreBtn = document.getElementById('toggle-content');
+        if (exploreBtn) {
+            exploreBtn.addEventListener('click', () => this.toggleContentMode());
+        }
+
+        // 세션 토글 버튼
+        const sessionBtn = document.getElementById('toggle-session-btn');
+        if (sessionBtn) {
+            sessionBtn.addEventListener('click', () => this.toggleSession());
+
+            // 세션 상태에 따른 버튼 텍스트 변경
+            stateManager.on('sessionStarted', () => {
+                sessionBtn.textContent = 'Finish';
+                sessionBtn.classList.add('active');
+            });
+            stateManager.on('sessionEnded', () => {
+                sessionBtn.textContent = 'Start';
+                sessionBtn.classList.remove('active');
+            });
+        }
+
+        // 애니메이션 토글 버튼
+        const animBtn = document.getElementById('toggle-animation-btn');
+        if (animBtn) {
+            animBtn.addEventListener('click', () => this.toggleAnimation());
+        }
+
+        // 음악 토글 버튼
+        const musicBtn = document.getElementById('toggle-music-btn');
+        if (musicBtn) {
+            musicBtn.addEventListener('click', () => musicService.toggle());
+
+            musicService.on('play', () => musicBtn.classList.add('active'));
+            musicService.on('pause', () => musicBtn.classList.remove('active'));
+        }
+
+        // 앱 리셋 버튼
+        const resetBtn = document.getElementById('reset-app-btn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetApp());
+        }
+
+        // 클릭으로 오디오 재생 시작 (배경 클릭 시 모드 전환은 제거 - 버튼으로 대체)
+        document.body.addEventListener('click', async (e) => {
+            // UI 요소를 클릭한 경우 무시
+            if (e.target.closest('#controls') || e.target.closest('#logo-container') || e.target.closest('#content-wrapper') || e.target.closest('.notification')) {
+                return;
+            }
+
+            if (!stateManager.getState('audio.isPlaying')) {
+                await this.audioManager.play();
+                stateManager.setAudioPlaying(true);
+            }
+        });
+
+        // 컨텐츠 닫기 버튼
+        const closeBtn = document.getElementById('close-content');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.toggleContentMode());
+        }
+
+        // 키보드 단축키
+        document.addEventListener('keydown', (e) => {
+            this.handleKeyboardShortcuts(e);
+        });
+    }
+
     // 정리
     dispose() {
         this.isInitialized = false;
@@ -424,6 +549,135 @@ export class DeepBreathApp extends EventEmitter {
 
         this.emit('disposed');
     }
+
+    // 컨텐츠 모드 토글
+    toggleContentMode() {
+        this.isContentMode = !this.isContentMode;
+
+        const contentUI = document.getElementById('content-mode-ui');
+        const mainControls = document.getElementById('controls');
+
+        if (this.isContentMode) {
+            this.injectContent();
+            contentUI.classList.remove('hidden');
+            setTimeout(() => contentUI.classList.add('active'), 10);
+            if (mainControls) mainControls.style.opacity = '0';
+        } else {
+            contentUI.classList.remove('active');
+            if (mainControls) mainControls.style.opacity = '1';
+            setTimeout(() => contentUI.classList.add('hidden'), 600);
+        }
+
+        this.emit('modeChanged', this.isContentMode ? 'explore' : 'focus');
+    }
+
+    injectContent() {
+        console.log('DeepBreath: Attempting to inject content...');
+        const main = document.getElementById('main-content');
+
+        if (!main) {
+            console.error('DeepBreath: #main-content element not found!');
+            return;
+        }
+
+        // Relaxed check: if there's only whitespace or comments, proceed.
+        // Or if it's already significantly populated, skip.
+        if (main.children.length > 0) {
+            console.log('DeepBreath: Content already injected (children found), skipping.');
+            return;
+        }
+
+        console.log('DeepBreath: Data available:', ContentData);
+
+        // Support both old and new data structures to prevent crashes
+        const journey = ContentData.journey || ContentData;
+
+        if (!journey || !journey.sections) {
+            console.error('DeepBreath: Content journey sections missing!', ContentData);
+            main.innerHTML = '<div class="content-section animate-fade-in"><p class="philosophy-content">Preparing your meditation journey... Please refresh if this takes too long.</p></div>';
+            return;
+        }
+        let html = `
+            <div class="content-title-area animate-fade-in">
+                <h1 class="glitch-text" data-text="${journey.title}">${journey.title}</h1>
+                <p class="philosophy-subtitle">${journey.subtitle}</p>
+                <p class="author">${journey.author}</p>
+            </div>
+        `;
+
+        journey.sections.forEach((section, index) => {
+            const delay = (index + 0.5) * 0.15;
+            const animateClass = `animate-fade-up`;
+            const style = `style="animation-delay: ${delay}s"`;
+
+            switch (section.type) {
+                case 'rich-text':
+                    html += `
+                        <div class="content-section ${animateClass}" ${style}>
+                            ${section.heading ? `<h2>${section.heading}</h2>` : ''}
+                            ${section.content.map(p => `<p class="philosophy-content">${p}</p>`).join('')}
+                        </div>
+                    `;
+                    break;
+                case 'quote':
+                    html += `
+                        <div class="quote-block ${animateClass}" ${style}>
+                            <p>${section.text}</p>
+                            ${section.author ? `<cite>${section.author}</cite>` : ''}
+                            ${section.subtext ? `<div class="quote-subtext">${section.subtext}</div>` : ''}
+                        </div>
+                    `;
+                    break;
+                case 'divider':
+                    html += `<div class="content-divider ${animateClass}" ${style}></div>`;
+                    break;
+                case 'meditation-pause':
+                    html += `
+                        <div class="meditation-pause ${animateClass}" ${style}>
+                            <p class="pause-text">${section.title}</p>
+                            <p class="breath-count">${section.subtitle}</p>
+                        </div>
+                    `;
+                    break;
+                case 'list':
+                    html += `
+                        <div class="content-section ${animateClass}" ${style}>
+                            ${section.heading ? `<h2>${section.heading}</h2>` : ''}
+                            <ul class="article-list">
+                                ${section.items.map(item => `<li>${item}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                    break;
+                case 'call-to-action':
+                    html += `
+                        <div class="premium-cta-section ${animateClass}" ${style}>
+                            <div class="premium-card">
+                                <div class="premium-badge">PREMIUM</div>
+                                <h2>${section.heading}</h2>
+                                <p class="premium-sub">${section.subheading}</p>
+                                <p class="premium-desc">${section.description}</p>
+                                <ul class="premium-features">
+                                    ${section.features.map(f => `<li><span class="check">✓</span> ${f}</li>`).join('')}
+                                </ul>
+                                <button class="cta-button pulse">${section.cta}</button>
+                            </div>
+                        </div>
+                    `;
+                    break;
+            }
+        });
+
+        const footerHtml = `
+            <div class="content-footer animate-fade-in" style="animation-delay: 2s">
+                <p>"${ContentData.footer.message}"</p>
+                <div class="footer-logo">DeepBreath.us</div>
+            </div>
+        `;
+
+        main.innerHTML = html + footerHtml;
+    }
+
 
     // 상태 정보
     getAppState() {
