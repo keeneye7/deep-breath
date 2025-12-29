@@ -2,6 +2,10 @@
 import { MilkyWayAnimation } from './components/animations/MilkyWay.js';
 import { ParticleAnimation } from './components/animations/Particles.js';
 import { AuraAnimation } from './components/animations/Aura.js';
+import { CosmicWebAnimation } from './components/animations/CosmicWeb.js';
+import { FlowFieldAnimation } from './components/animations/FlowField.js';
+import { NebulaAnimation } from './components/animations/Nebula.js';
+import { GeometricMorphAnimation } from './components/animations/GeometricMorph.js';
 import { AudioManager } from './components/audio/AudioManager.js';
 import { stateManager } from './services/StateManager.js';
 import { EventEmitter } from './utils/EventEmitter.js';
@@ -236,6 +240,9 @@ export class DeepBreathApp extends EventEmitter {
                 this.currentAnimation = null;
             }
 
+            const userTier = stateManager.user.getState('tier');
+            const isPremium = userTier === 'paid';
+
             // 새 애니메이션 생성
             switch (animationType) {
                 case 'milkyway':
@@ -244,10 +251,28 @@ export class DeepBreathApp extends EventEmitter {
                 case 'particles':
                     this.currentAnimation = new ParticleAnimation(this.container);
                     break;
+                case 'cosmicweb':
+                    this.currentAnimation = new CosmicWebAnimation(this.container);
+                    break;
+                case 'flowfield':
+                    this.currentAnimation = new FlowFieldAnimation(this.container);
+                    break;
+                case 'nebula':
+                    if (!isPremium) {
+                        musicService.emit('premiumRequired', { title: 'Nebula Animation' });
+                        return;
+                    }
+                    this.currentAnimation = new NebulaAnimation(this.container);
+                    break;
+                case 'geometric':
+                    if (!isPremium) {
+                        musicService.emit('premiumRequired', { title: 'Geometric Morph Animation' });
+                        return;
+                    }
+                    this.currentAnimation = new GeometricMorphAnimation(this.container);
+                    break;
                 case 'aura':
-                    const userTier = stateManager.user.getState('tier');
-                    if (userTier !== 'paid') {
-                        // 프리미엄 안내창 표시용 이벤트 발생
+                    if (!isPremium) {
                         musicService.emit('premiumRequired', { title: 'Aura Animation' });
                         return;
                     }
@@ -401,20 +426,16 @@ export class DeepBreathApp extends EventEmitter {
     toggleAnimation() {
         const currentAnim = stateManager.getState('currentAnimation');
         const userTier = stateManager.user.getState('tier');
-        let newAnim;
+        const isPremium = userTier === 'paid';
 
-        if (currentAnim === 'milkyway') {
-            newAnim = 'particles';
-        } else if (currentAnim === 'particles') {
-            // 'aura' is premium. If user is free, skip to 'milkyway'
-            if (userTier === 'paid') {
-                newAnim = 'aura';
-            } else {
-                newAnim = 'milkyway';
-            }
-        } else {
-            newAnim = 'milkyway';
-        }
+        // Animation cycle order
+        const freeAnimations = ['milkyway', 'particles', 'cosmicweb', 'flowfield'];
+        const premiumAnimations = ['nebula', 'geometric', 'aura'];
+        const allAnimations = isPremium ? [...freeAnimations, ...premiumAnimations] : freeAnimations;
+
+        const currentIndex = allAnimations.indexOf(currentAnim);
+        const nextIndex = (currentIndex + 1) % allAnimations.length;
+        const newAnim = allAnimations[nextIndex];
 
         this.switchAnimation(newAnim);
     }
