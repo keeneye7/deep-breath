@@ -18,6 +18,35 @@ export class UserContext extends EventEmitter {
         if (savedData) {
             this.state = { ...this.state, ...savedData };
         }
+
+        // Check query string for premium override
+        this.checkQueryStringOverride();
+    }
+
+    checkQueryStringOverride() {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+
+            // Support multiple query string formats
+            // ?premium=true
+            // ?tier=paid
+            // ?membership=premium
+            const premiumParam = urlParams.get('premium');
+            const tierParam = urlParams.get('tier');
+            const membershipParam = urlParams.get('membership');
+
+            if (premiumParam === 'true' || tierParam === 'paid' || membershipParam === 'premium') {
+                this.state.tier = 'paid';
+                console.log('🌟 Premium tier activated via query string');
+                this.emit('tierChanged', 'paid');
+            } else if (premiumParam === 'false' || tierParam === 'free' || membershipParam === 'free') {
+                this.state.tier = 'free';
+                console.log('🆓 Free tier set via query string');
+                this.emit('tierChanged', 'free');
+            }
+        } catch (error) {
+            console.warn('Failed to parse query string:', error);
+        }
     }
 
     setTier(tier) {

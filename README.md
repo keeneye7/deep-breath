@@ -39,6 +39,25 @@
    http://localhost:3000
    ```
 
+### 프리미엄 기능 테스트
+
+프리미엄 애니메이션을 테스트하려면 URL에 query string을 추가하세요:
+
+```
+http://localhost:3000?premium=true
+http://localhost:3000?tier=paid
+http://localhost:3000?membership=premium
+```
+
+다시 무료 버전으로 돌아가려면:
+
+```
+http://localhost:3000?premium=false
+http://localhost:3000?tier=free
+```
+
+> 💡 **Tip**: Query string 설정은 localStorage보다 우선순위가 높으므로 즉시 적용됩니다.
+
 ## 📁 프로젝트 구조
 
 ```plaintext
@@ -183,10 +202,17 @@ deep-breath/
 
 ```javascript
 // 브라우저 콘솔에서 사용 가능
+
+// 기본 컨트롤
 deepBreathDebug.getState()        // 현재 앱 상태 확인
 deepBreathDebug.toggleAnimation() // 애니메이션 전환
 deepBreathDebug.toggleSession()   // 세션 토글
 deepBreathDebug.reset()           // 앱 리셋
+
+// 프리미엄 티어 컨트롤
+deepBreathDebug.enablePremium()   // 프리미엄 활성화
+deepBreathDebug.disablePremium()  // 프리미엄 비활성화
+deepBreathDebug.getTier()         // 현재 티어 확인
 ```
 
 ## 🌟 향후 계획

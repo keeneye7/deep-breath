@@ -104,6 +104,25 @@ function showWelcomeMessage() {
             `, 'info', 8000);
         }, 2000);
     }
+
+    // Check for premium tier and show notification
+    import('./src/services/StateManager.js').then(({ stateManager }) => {
+        const tier = stateManager.user.getState('tier');
+        if (tier === 'paid') {
+            setTimeout(() => {
+                showNotification(`
+                    <div style="font-size: 1.1em; font-weight: 600; margin-bottom: 8px;">✨ Premium Access Enabled</div>
+                    <div style="opacity: 0.9; font-size: 0.95em;">
+                        You now have access to premium animations:<br>
+                        • 🌈 Nebula<br>
+                        • 🔷 Geometric Morph<br>
+                        • 💫 Aura
+                    </div>
+                    <div style="margin-top: 10px; font-size: 0.85em; opacity: 0.8;">Press Tab to cycle through all animations</div>
+                `, 'info', 6000);
+            }, isFirstVisit ? 10000 : 2000);
+        }
+    });
 }
 
 function showNotification(message, type = 'info', duration = 3000) {
@@ -156,16 +175,34 @@ function setupDebugMode() {
     console.log('🔧 Debug mode enabled');
 
     // 전역 디버깅 객체 생성
-    window.deepBreathDebug = {
-        app: deepBreathApp,
-        getState: () => deepBreathApp.getAppState(),
-        toggleAnimation: () => deepBreathApp.toggleAnimation(),
-        toggleSession: () => deepBreathApp.toggleSession(),
-        reset: () => deepBreathApp.resetApp()
-    };
+    import('./src/services/StateManager.js').then(({ stateManager }) => {
+        window.deepBreathDebug = {
+            app: deepBreathApp,
+            stateManager: stateManager,
+            getState: () => deepBreathApp.getAppState(),
+            toggleAnimation: () => deepBreathApp.toggleAnimation(),
+            toggleSession: () => deepBreathApp.toggleSession(),
+            reset: () => deepBreathApp.resetApp(),
+            // Premium tier controls
+            enablePremium: () => {
+                stateManager.user.setTier('paid');
+                console.log('✨ Premium tier enabled');
+                showNotification('Premium tier enabled! Press Tab to see new animations.', 'info', 3000);
+            },
+            disablePremium: () => {
+                stateManager.user.setTier('free');
+                console.log('🆓 Free tier set');
+                showNotification('Free tier set', 'info', 2000);
+            },
+            getTier: () => {
+                const tier = stateManager.user.getState('tier');
+                console.log(`Current tier: ${tier}`);
+                return tier;
+            }
+        };
 
-    // 키보드 단축키 안내
-    console.log(`
+        // 키보드 단축키 안내
+        console.log(`
 🎹 Keyboard shortcuts:
 • Space: Toggle audio
 • Tab: Switch animation
@@ -177,7 +214,15 @@ function setupDebugMode() {
 • deepBreathDebug.toggleAnimation() - Switch animation
 • deepBreathDebug.toggleSession() - Toggle session
 • deepBreathDebug.reset() - Reset app
-    `);
+
+✨ Premium tier controls:
+• deepBreathDebug.enablePremium() - Enable premium tier
+• deepBreathDebug.disablePremium() - Disable premium tier
+• deepBreathDebug.getTier() - Get current tier
+
+💡 Or use query strings: ?premium=true or ?tier=paid
+        `);
+    });
 }
 
 // 에러 핸들링
