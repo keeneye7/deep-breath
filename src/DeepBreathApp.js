@@ -489,7 +489,13 @@ export class DeepBreathApp extends EventEmitter {
         // 음악 토글 버튼
         const musicBtn = document.getElementById('toggle-music-btn');
         if (musicBtn) {
-            musicBtn.addEventListener('click', () => musicService.toggle());
+            musicBtn.addEventListener('click', () => {
+                if (this.musicControls) {
+                    this.musicControls.toggle();
+                } else {
+                    musicService.toggle();
+                }
+            });
 
             musicService.on('play', () => musicBtn.classList.add('active'));
             musicService.on('pause', () => musicBtn.classList.remove('active'));

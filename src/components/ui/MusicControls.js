@@ -118,18 +118,36 @@ export class MusicControls extends EventEmitter {
                 position: fixed;
                 bottom: 20px;
                 left: 20px;
-                background: rgba(0, 0, 0, 0.8);
-                backdrop-filter: blur(10px);
-                border-radius: 12px;
-                padding: 15px;
+                background: rgba(0, 0, 0, 0.82);
+                backdrop-filter: blur(20px);
+                -webkit-backdrop-filter: blur(20px);
+                border-radius: 20px;
+                padding: 16px;
                 color: white;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                z-index: 1000;
+                font-family: var(--font-main, sans-serif);
+                z-index: 1001;
                 min-width: 320px;
                 transform: translateY(100px);
                 opacity: 0;
-                transition: all 0.3s ease;
+                transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
                 border: 1px solid rgba(255, 255, 255, 0.1);
+                box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            }
+            
+            @media (max-width: 768px) {
+                .music-controls {
+                    left: 10px;
+                    right: 10px;
+                    bottom: 180px; /* Higher to clear two-row main controls */
+                    min-width: auto;
+                    width: calc(100% - 20px);
+                    padding: 12px;
+                    transform: translateY(20px); /* Smaller default transform */
+                }
+                
+                .music-controls.visible {
+                    transform: translateY(0);
+                }
             }
             
             .music-controls.visible {

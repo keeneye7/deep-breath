@@ -29,6 +29,9 @@ This project is an audio visualizer that uses Three.js to create a dynamic Milky
    npm install
    ```
 
+## Local server
+```
+
 ## Usage
 
 1. Open the `index.html` file in your web browser:

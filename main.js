@@ -22,6 +22,13 @@ document.addEventListener("DOMContentLoaded", async function () {
     } catch (error) {
         console.error('❌ Failed to initialize DeepBreath.us:', error);
         showErrorMessage('앱을 초기화하는 중 오류가 발생했습니다. 페이지를 새로고침해주세요.');
+
+        // Ensure loader is hidden even on failure
+        const loader = document.getElementById('loading-overlay');
+        if (loader) {
+            loader.classList.add('hidden');
+            setTimeout(() => loader.remove(), 1000);
+        }
     }
 });
 

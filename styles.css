@@ -792,16 +792,50 @@ html {
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 768px) {
     #controls {
-        gap: 5px;
+        width: 95vw;
+        padding: 8px 10px;
+        gap: 4px;
+        border-radius: 20px;
+        bottom: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .ui-button {
-        padding: 5px 8px;
+        padding: 12px 14px;
+        font-size: 0.75rem;
+        letter-spacing: 0.04em;
+        flex: 1 1 40%;
+        /* Force two columns on narrow screens */
+        justify-content: center;
+        min-height: 48px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
     }
 
+
+    .divider {
+        display: none;
+    }
+
+    #volume-control {
+        width: 100%;
+        margin-top: 10px;
+    }
+
+
+    #visualizer {
+        bottom: 120px;
+        left: 20px;
+        right: 20px;
+        height: 40px;
+        justify-content: center;
+    }
+
+
     .logo-text {
-        font-size: 1rem;
+        font-size: 1.2rem;
     }
 }
