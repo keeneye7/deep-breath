@@ -82,7 +82,7 @@ export class DeepBreathApp extends EventEmitter {
             // Hide loading overlay
             const loader = document.getElementById('loading-overlay');
             if (loader) {
-                loader.style.opacity = '0';
+                loader.classList.add('hidden');
                 setTimeout(() => loader.remove(), 1000);
             }
 

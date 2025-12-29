@@ -51,7 +51,28 @@ html {
     justify-content: center;
     align-items: center;
     z-index: 10000;
-    transition: opacity 1s ease-out;
+    transition: opacity 1s ease-out, visibility 1s;
+    pointer-events: none;
+    /* Make it non-blocking by default */
+}
+
+#loading-overlay:not(.hidden) {
+    pointer-events: auto;
+    /* Failsafe: hide loader after 8s even if JS fails */
+    animation: fadeOutFailsafe 1s ease-out 8s forwards;
+}
+
+@keyframes fadeOutFailsafe {
+    to {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+    }
+}
+
+#loading-overlay.hidden {
+    opacity: 0;
+    visibility: hidden;
 }
 
 .loader {
@@ -704,5 +725,83 @@ html {
         flex-direction: column;
         align-items: center;
         gap: 10px;
+    }
+}
+
+/* Responsive Mobile Styles */
+@media (max-width: 768px) {
+    #controls {
+        width: 95vw;
+        bottom: 20px;
+        padding: 10px 15px;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: center;
+        border-radius: 25px;
+    }
+
+    .ui-button {
+        font-size: 0.8rem;
+        padding: 12px 18px;
+        /* Larger touch target (approx 44px+ height) */
+        gap: 6px;
+    }
+
+    .divider {
+        height: 15px;
+        margin: 0 2px;
+    }
+
+    #volume-control {
+        width: 80px;
+    }
+
+    #logo-container {
+        top: 20px;
+        left: 20px;
+        bottom: auto;
+        transform: scale(0.7);
+        transform-origin: top left;
+    }
+
+    /* Content Mode Mobile */
+    .content-header nav {
+        padding: 15px 20px;
+    }
+
+    #main-content {
+        padding: 40px 25px;
+    }
+
+    .content-title-area h1 {
+        font-size: 2rem;
+    }
+
+    .philosophy-content {
+        font-size: 1.05rem;
+        line-height: 1.7;
+    }
+
+    .quote-block {
+        padding-left: 15px;
+        font-size: 1.1rem;
+    }
+
+    .meditation-pause {
+        padding: 25px;
+    }
+}
+
+@media (max-width: 480px) {
+    #controls {
+        gap: 5px;
+    }
+
+    .ui-button {
+        padding: 5px 8px;
+    }
+
+    .logo-text {
+        font-size: 1rem;
     }
 }
